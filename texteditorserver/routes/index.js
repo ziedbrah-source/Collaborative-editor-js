@@ -1,23 +1,25 @@
 var express = require("express");
 var router = express.Router();
-var prod = require("../utils/send");
 var produceRequest = require("../utils/sendRequest");
 var sendToken = require("../utils/sendToken");
+var tokenReceiver = require("../utils/tokenReceiver");
+var requestReceiver = require("../utils/requestReceiver");
+
 const ID = 1;
-const Token = false;
-let Etat = "not_requesting";
+const Token = { sure: ID == 1 ? true : false };
+
+let Etat = { etat: "not_requesting" };
 const Rn = [0, 0, 0, 0];
 const Ln = [0, 0, 0, 0];
 const queue = [];
+tokenReceiver(ID, Token, Etat, Ln, queue);
+requestReceiver(ID, Token, Etat, queue, Rn, Ln);
 function Request_Cs() {
-  Etat = "requesting";
-  if (Token == false) {
+  Etat.etat = "requesting";
+  if (Token.sure == false) {
     Rn[ID - 1] = Rn[ID - 1] + 1;
-    produceRequest();
-    console.log("cbon !");
-    while (Token == false);
+    produceRequest(ID, Rn[ID - 1]);
   }
-  Etat = "critical_section";
 }
 function Release_CS() {
   Ln[ID - 1] = Rn[ID - 1];
@@ -27,15 +29,18 @@ function Release_CS() {
     }
   }
   if (queue.length > 0) {
-    Token = false;
+    Token.sure = false;
     let id = queue.pop();
-    sendToken(queue, Ln);
+    sendToken(queue, Ln, id);
   }
+  Etat.etat = "not_requesting";
 }
 router.get("/", function (req, res, next) {
-  prod();
+  return res.json({ number: ID });
+});
+router.post("/", function (req, res, next) {
   Request_Cs();
-  res.json({ number: ID });
+  return res.json({ number: Etat.etat });
 });
 
 module.exports = router;
